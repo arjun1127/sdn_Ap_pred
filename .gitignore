@@ -54,3 +54,5 @@ mininet/
 *.cache
 *.idea/
 *.vscode/
+# Ignore SUMO cloned repository
+sumo/sumo/
