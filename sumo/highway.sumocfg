@@ -1,0 +1,13 @@
+<configuration>
+    <input>
+        <net-file value="highway.net.xml"/>
+        <route-files value="highway.rou.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="1000"/>
+    </time>
+    <output>
+        <fcd-output value="car_positions.xml"/>
+    </output>
+</configuration>

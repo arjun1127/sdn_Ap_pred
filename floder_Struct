@@ -1,0 +1,24 @@
+project/
+│── ryu/                   # (Installed & cloned from GitHub)
+│── mininet/               # (Installed & cloned from GitHub)
+│── sumo/                  # (For vehicle mobility simulation)
+│   ├── highway.net.xml    # Road network definition
+│   ├── highway.rou.xml    # Vehicle routes definition
+│   ├── sumo_config.sumocfg # SUMO simulation config file
+│── lstm_model/            # (For LSTM model training & inference at APs)
+│   ├── train_lstm.py      # Training script
+│   ├── lstm_predict.py    # Prediction script
+│   ├── dataset/           # (Collected datasets)
+│   │   ├── traffic_data.csv
+│   │   ├── vehicle_data.csv
+│── sdn_controller/        # (Code for SDN logic)
+│   ├── controller.py      # Main SDN controller script
+│   ├── flow_manager.py    # Handles flow table updates
+│── ap_nodes/              # (Code running at each AP)
+│   ├── ap1.py             # AP1 LSTM integration
+│   ├── ap2.py             # AP2 LSTM integration
+│── simulation/            # (Test scripts & logs)
+│   ├── run_mininet.py     # Starts Mininet simulation
+│   ├── test_network.py    # Scripts for testing SDN rules
+│── requirements.txt       # Python dependencies
+│── README.md              # Project documentation
