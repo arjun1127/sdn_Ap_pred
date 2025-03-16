@@ -1,0 +1,56 @@
+# Python Virtual Environments
+venv/
+lstm_venv/
+*.pyc
+*.pyo
+__pycache__/
+*.swp
+.DS_Store
+
+# SUMO Generated Files
+*.net.xml
+*.poly.xml
+*.nod.xml
+*.edg.xml
+*.trips.xml
+*.rou.alt.xml
+*.dump.xml
+*.fcd.xml
+*.vehroute.xml
+*.emissions.xml
+*.sumo.cfg.bak
+
+# Logs & Debug Files
+*.log
+*.txt
+sumo_log.txt
+nohup.out
+
+# CSV & Data Files
+*.csv
+*.xlsx
+*.hdf5
+merged_data.csv
+network_stats.csv
+vehicle_predictions.csv
+
+# Mininet & SDN Temporary Files
+*.pcap
+*.topo
+*.dat
+*.dmp
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Ryu & Mininet Folders (Cloned from GitHub)
+ryu/
+mininet/
+
+# Miscellaneous
+*.bak
+*.tmp
+*.lock
+*.cache
+*.idea/
+*.vscode/
