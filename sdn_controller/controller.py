@@ -10,45 +10,111 @@ import threading
 import csv
 from ryu.lib import hub
 import time
+import os
 
 class SDNController(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(SDNController, self).__init__(*args, **kwargs)
-        self.ap_predictions = {}  # Store LSTM predictions from each AP
-        self.listen_for_predictions()
-        self.datapaths = {}  # Store switch datapaths for traffic monitoring
+        self.ap_predictions = {}  # Store LSTM predictions
+        self.vehicle_data = {}  # Store latest vehicle data
+
+        self.listen_for_predictions()  # UDP listener for LSTM predictions
+        self.listen_for_vehicle_data()  # UDP listener for SUMO vehicle data
+
+        self.datapaths = {}  # Store switch datapaths for monitoring
         self.monitor_thread = hub.spawn(self._monitor)  # Start traffic monitoring
 
+        self.network_csv = "network_stats.csv"
+        self.vehicle_csv = "vehicle_data.csv"
+        self.initialize_csvs()  # Ensure CSV files have headers
+
+    def initialize_csvs(self):
+        """Create CSV files with column headers if they don't exist."""
+        if not os.path.exists(self.network_csv):
+            with open(self.network_csv, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "timestamp", "switch_id", "port_no", "rx_packets",
+                    "tx_packets", "rx_bytes", "tx_bytes",
+                    "rx_dropped", "tx_dropped", "traffic_load"
+                ])
+
+        if not os.path.exists(self.vehicle_csv):
+            with open(self.vehicle_csv, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["timestamp", "vehicle_id", "ap_id", "speed", "x", "y", "lane"])
+
     def listen_for_predictions(self):
-        """Starts a separate thread to receive LSTM predictions asynchronously."""
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_socket.bind(("0.0.0.0", 5001))
+        """Start a separate thread to receive LSTM predictions asynchronously."""
+        self.prediction_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.prediction_socket.bind(("0.0.0.0", 5001))
         self.logger.info("Listening for LSTM predictions on UDP port 5001...")
 
         thread = threading.Thread(target=self.monitor_predictions, daemon=True)
+        thread.start()
+
+    def listen_for_vehicle_data(self):
+        """Start a separate thread to receive vehicle data asynchronously from SUMO."""
+        self.vehicle_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.vehicle_socket.bind(("0.0.0.0", 5002))
+        self.logger.info("Listening for vehicle data on UDP port 5002...")
+
+        thread = threading.Thread(target=self.monitor_vehicle_data, daemon=True)
         thread.start()
 
     def monitor_predictions(self):
         """Receives LSTM predictions and updates AP traffic load."""
         while True:
             try:
-                data, addr = self.server_socket.recvfrom(1024)
+                data, addr = self.prediction_socket.recvfrom(1024)
                 prediction = json.loads(data.decode('utf-8'))
-                ap_id = prediction["ap_id"]
-                traffic_load = prediction["traffic_load"]
-                self.ap_predictions[ap_id] = traffic_load
+                ap_id = prediction.get("ap_id")
+                traffic_load = prediction.get("traffic_load")
 
-                self.logger.info(f"Received prediction from {ap_id}: {traffic_load}")
-
-                # Append vehicle predictions to CSV
-                with open("vehicle_predictions.csv", "a", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow([time.time(), ap_id, traffic_load])
+                if ap_id and traffic_load is not None:
+                    self.ap_predictions[ap_id] = traffic_load
+                    self.logger.info(f"Received prediction from {ap_id}: {traffic_load}")
+                else:
+                    self.logger.warning(f"Invalid prediction data received: {prediction}")
 
             except Exception as e:
                 self.logger.error(f"Error receiving prediction: {e}")
+
+    def monitor_vehicle_data(self):
+        """Receives vehicle data from SUMO and logs it."""
+        while True:
+            try:
+                data, addr = self.vehicle_socket.recvfrom(1024)
+                vehicle_info = json.loads(data.decode('utf-8'))
+                vehicle_id = vehicle_info.get("vehicle_id")
+                ap_id = vehicle_info.get("ap_id")
+                speed = vehicle_info.get("speed")
+                x = vehicle_info.get("x")
+                y = vehicle_info.get("y")
+                lane = vehicle_info.get("lane")
+
+                if vehicle_id and ap_id:
+                    self.vehicle_data[vehicle_id] = vehicle_info
+                    self.logger.info(f"Received vehicle data: {vehicle_info}")
+
+                    # Save to CSV
+                    with open(self.vehicle_csv, "a", newline="") as f:
+                        writer = csv.writer(f)
+                        writer.writerow([time.time(), vehicle_id, ap_id, speed, x, y, lane])
+
+            except Exception as e:
+                self.logger.error(f"Error receiving vehicle data: {e}")
+
+    @set_ev_cls(ofp_event.EventOFPStateChange, [CONFIG_DISPATCHER, MAIN_DISPATCHER])
+    def _state_change_handler(self, ev):
+        """Register and unregister switches dynamically."""
+        datapath = ev.datapath
+        if ev.state == MAIN_DISPATCHER:
+            self.datapaths[datapath.id] = datapath
+        elif ev.state == CONFIG_DISPATCHER and datapath.id in self.datapaths:
+            del self.datapaths[datapath.id]
 
     def _monitor(self):
         """Continuously request port stats from switches and save data."""
@@ -67,111 +133,40 @@ class SDNController(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
-        """Handle port stats replies and log to a CSV file with LSTM predictions."""
+        """Handle port stats replies and log to a CSV file."""
         body = ev.msg.body
         timestamp = time.time()
 
-        with open("network_stats.csv", "a", newline="") as f:
-            writer = csv.writer(f)
-            for stat in body:
-                ap_id = f"ap{ev.msg.datapath.id}"  # Ensure AP ID matches Mininet
-                traffic_load = self.ap_predictions.get(ap_id, 0)  # Get latest LSTM prediction
-                
-                writer.writerow([timestamp, ev.msg.datapath.id, stat.port_no, stat.rx_packets,
-                                 stat.tx_packets, stat.rx_bytes, stat.tx_bytes,
-                                 stat.rx_dropped, stat.tx_dropped, traffic_load])
+        try:
+            with open(self.network_csv, "a", newline="") as f:
+                writer = csv.writer(f)
+                for stat in body:
+                    ap_id = f"ap{ev.msg.datapath.id}"  # Ensure AP ID matches Mininet
+                    traffic_load = self.ap_predictions.get(ap_id, 0)
 
-                self.logger.info(f"[{timestamp}] Switch {ev.msg.datapath.id} Port {stat.port_no}: RX {stat.rx_bytes} TX {stat.tx_bytes} | Predicted Load: {traffic_load}")
+                    writer.writerow([
+                        timestamp, ev.msg.datapath.id, stat.port_no, stat.rx_packets,
+                        stat.tx_packets, stat.rx_bytes, stat.tx_bytes,
+                        stat.rx_dropped, stat.tx_dropped, traffic_load
+                    ])
 
-    def get_ap_port(self, datapath, ap_id):
-        """Return the correct output port for the given AP ID."""
-        # Map APs to OpenFlow switch ports
-        ap_port_map = {"ap1": 1, "ap2": 2, "ap3": 3, "ap4": 4}
-        
-        if ap_id in ap_port_map:
-            return ap_port_map[ap_id]  # Return the correct port number for the AP
-        else:
-            return datapath.ofproto.OFPP_FLOOD  # Default to flooding if AP not found
+                    self.logger.info(
+                        f"[{timestamp}] Switch {ev.msg.datapath.id} Port {stat.port_no}: "
+                        f"RX {stat.rx_bytes} TX {stat.tx_bytes} | Predicted Load: {traffic_load}"
+                    )
+        except Exception as e:
+            self.logger.error(f"Error writing to network_stats.csv: {e}")
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
-        """Adds flow rules dynamically based on congestion data with timeout."""
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        """Handles switch connection and installs default flow rules."""
+        datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+
+        actions = [parser.OFPActionOutput(ofproto.OFPP_NORMAL)]
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        
-        mod = parser.OFPFlowMod(
-            datapath=datapath, priority=priority, match=match, 
-            instructions=inst, idle_timeout=30, hard_timeout=30
-        )
+        mod = parser.OFPFlowMod(datapath=datapath, priority=1, instructions=inst)
         datapath.send_msg(mod)
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        """Handles incoming packets and applies flow rules based on congestion and vehicle data."""
-        msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        in_port = msg.match['in_port']
-
-        pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocol(ethernet.ethernet)
-        ip = pkt.get_protocol(ipv4.ipv4)
-
-        if eth is None or ip is None:
-            return
-
-        src = eth.src
-        dst = eth.dst
-
-        # Select the least congested AP based on LSTM predictions
-        least_congested_ap = min(self.ap_predictions, key=lambda k: self.ap_predictions.get(k, float("inf")), default=None)
-
-        if least_congested_ap:
-            self.logger.info(f"Redirecting traffic to {least_congested_ap}")
-            output_port = self.get_ap_port(datapath, least_congested_ap)  # Correct port mapping
-            actions = [parser.OFPActionOutput(output_port)]
-        else:
-            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-
-        match = parser.OFPMatch(eth_src=src, eth_dst=dst)
-        self.add_flow(datapath, 1, match, actions)
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=msg.data)
-        datapath.send_msg(out)
-
-
-# Receives LSTM Predictions via UDP (port 5001) from APs.
-# Stores Traffic Load per AP in self.ap_predictions.
-# Handles Incoming Packets and redirects traffic to the least congested AP.
-# Installs Dynamic Flow Rules in OpenFlow switches to optimize vehicle communication.
-#  Receive LSTM predictions from APs (e.g., traffic load, latency, etc.)
-#  Analyze network congestion based on predicted values
-# Modify flow tables dynamically to optimize vehicle data routing
-# Ensure minimal load on the SDN controller by using only LSTM-based decisions
-
-#SDN Controller's Role:
-
-# Centralized Intelligence: It makes decisions (like redirecting traffic based on LSTM predictions) and then installs flow rules into the data plane devices (the switches).
-# Policy Enforcement: It controls how traffic is routed and managed across the network, similar to a router’s function, but it doesn't physically forward the packets itself.
-
-# Data Plane Devices:
-
-# Switches/APs: The actual packet forwarding is done by the switches (configured as APs and the central switch) in your Mininet topology.
-# Routing Decisions: The controller's decisions result in the installation of flow rules in these switches, which then handle the packet forwarding according to those rules.
-
-
-
-# Port Statistics Collection
-
-# The controller requests port stats every 5 seconds (self._monitor()).
-# Received stats are logged to a CSV file (network_stats.csv).
-# Retains LSTM Prediction Handling
-
-# The controller still listens for LSTM predictions and uses them for traffic redirection.
-# Efficient Traffic Monitoring
-
-# Uses Ryu's hub.spawn() to run monitoring in the background.
-
-#data getting =>timestamp,switch_id,port_no,rx_packets,tx_packets,rx_bytes,tx_bytes,rx_dropped,tx_dropped
+        self.logger.info(f"Installed default forwarding rule on Switch {datapath.id}")
