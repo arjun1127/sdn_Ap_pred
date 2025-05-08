@@ -1,0 +1,14 @@
+avg_packet_rate = (rx_packets + tx_packets) / Δt
+
+avg_latency = traffic_load * latency_factor  # latency_factor is a domain-based constant
+
+bandwidth_usage = (rx_bytes + tx_bytes) * 8 / Δt  # in bits per second
+
+active_nodes = count of unique port_no where rx_packets + tx_packets > 0
+
+conegestion =   ["avg_packet_rate"] + \
+                ["avg_latency"] + \
+                0.5 * ["bandwidth_usage"] - \
+                0.2 * ["speed"] + \
+                0.1 * ["acceleration"] + \
+                0.3 * ["active_nodes"]

@@ -1,0 +1,132 @@
+Network Traffic Prediction using SDN & LSTM Project
+
+project focuses on predicting network traffic in an IoV (Internet of Vehicles) environment using Software-Defined Networking (SDN) and LSTM (Long Short-Term Memory) networks. The goal is to analyze and predict network load on different access points (APs) based on historical data, helping optimize SDN-based network management.
+
+1. Data Preprocessing & Feature Engineering
+
+Collected real-time network traffic data from SUMO/Mininet simulations.
+
+Extracted relevant features:
+
+Spatial Features: x, y (position), speed, lane
+
+Network Features: rx_packets, tx_packets, rx_bytes, tx_bytes, rx_dropped, tx_dropped
+
+Encoded categorical ap_id (Access Point ID) using one-hot encoding.
+
+Converted raw data into time-series sequences (sequence length = 10 timesteps).
+
+Split data into training (80%) and testing (20%) sets.
+
+
+2. Model Development & Training(model architecture may change based on model's performance )
+
+Designed an LSTM-based neural network:
+
+Two LSTM layers (64 units each)
+
+Dropout layers (to prevent overfitting)
+
+Dense layers (for classification)
+
+Softmax activation (to predict AP assignment)
+
+Compiled the model using:
+
+Adam optimizer (learning_rate=0.001)
+
+Categorical Crossentropy loss function
+
+Accuracy as the evaluation metric
+
+
+-------------------------------------------------
+
+SO FAR WHAT WE HAVE ACHIEVED 
+
+-Given a sequence of network traffic data, the model will predict which access point (AP) will be assigned to the next data packet.
+
+for example 
+
+Input: [x, y, speed, rx_packets, tx_packets, ...] over last 10 timesteps  
+Output: Predicted AP_ID (one-hot encoded) → Converted back to AP label
+
+How This Prediction Helps?
+
+ -Optimized Network Load Balancing
+
+ 	The SDN controller can predict congestion and reroute packets   before overload happens.
+
+ 	Helps in dynamic flow-rule placement across APs.
+
+ -Improved QoS (Quality of Service) for IoV Applications
+
+	Vehicles moving in the network get faster & more reliable 	 connectivity.
+
+	Reduces packet loss & latency for real-time vehicle 	applications (e.g., V2X communication).
+	
+-----------------------------------------------------------------
+
+WORK TO BE DONE 
+
+
+mplement Feature Normalization (StandardScaler)
+
+Retrain the Model with Hyperparameter Tuning
+
+Evaluate Model Performance After Improvements
+
+Deploy Predictions into the SDN Controller for Dynamic Flow Rule Updates
+
+
+-----------------------------------------------------------------
+
+
+HOW PREDICTIONS INFLUENCE FLOW RULE PLACEMENT ?
+
+ BEFORE USING LSTM PREDICTIONS
+
+SDN controller reacts to network congestion only after it happens.
+
+Flow rules are set statically or manually adjusted when network traffic fluctuates.
+
+
+ AFTER USING LSTM PREDICTIONS
+
+The SDN controller proactively assigns flow rules based on predicted AP congestion.
+
+Reduces latency, packet drops, and network congestion in IoV scenarios.
+
+-----------------------------------------------------------------
+
+SO TO DO THAT :  AFTER USING LSTM PREDICTIONS
+
+1. Deploy the LSTM Model as a Prediction Service
+Save the trained model (.h5 file) and create a Flask API to serve predictions.
+	This API will return the predicted best access point (AP).
+
+2. Integrate Predictions into Ryu SDN Controller
+Modify your Ryu controller to fetch LSTM predictions before placing flow rules.
+
+Steps:
+
+Extract real-time traffic data from SDN switches using OpenFlow statistics.
+
+Send data to the LSTM prediction API.
+
+Receive the predicted AP assignment.
+
+Modify flow rules dynamically:
+
+If predicted_ap is not equal to current_ap, then update the flow table to reroute packets.
+
+
+3. Implement Dynamic Flow Rule Updates
+	Trigger update_flow_rule() after getting LSTM predictions.
+
+
+
+
+
+
+
