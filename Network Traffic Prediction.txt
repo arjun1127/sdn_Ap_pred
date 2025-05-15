@@ -1,132 +1,73 @@
-Network Traffic Prediction using SDN & LSTM Project
+Default Flow Rule (in switch_features_handler)
 
-project focuses on predicting network traffic in an IoV (Internet of Vehicles) environment using Software-Defined Networking (SDN) and LSTM (Long Short-Term Memory) networks. The goal is to analyze and predict network load on different access points (APs) based on historical data, helping optimize SDN-based network management.
+match = dp.ofproto_parser.OFPMatch()
+actions = [dp.ofproto_parser.OFPActionOutput(dp.ofproto.OFPP_CONTROLLER, dp.ofproto.OFPCML_NO_BUFFER)]
 
-1. Data Preprocessing & Feature Engineering
 
-Collected real-time network traffic data from SUMO/Mininet simulations.
+Purpose: Send all unmatched packets to the controller.
 
-Extracted relevant features:
+Helps with:
 
-Spatial Features: x, y (position), speed, lane
+Learning topology dynamically (like discovering source MACs via packet_in_handler)
 
-Network Features: rx_packets, tx_packets, rx_bytes, tx_bytes, rx_dropped, tx_dropped
+Reacting to unknown flows (e.g., when predictions come in and flows must be updated)
 
-Encoded categorical ap_id (Access Point ID) using one-hot encoding.
 
-Converted raw data into time-series sequences (sequence length = 10 timesteps).
 
-Split data into training (80%) and testing (20%) sets.
+Flow Rule via add_flow
 
+self.add_flow(dp, priority, match, actions, idle_timeout, hard_timeout)
+Used in multiple places (like default rule, rerouting, special flows).
 
-2. Model Development & Training(model architecture may change based on model's performance )
+Parameters:
 
-Designed an LSTM-based neural network:
+priority: Determines which rule takes precedence.
 
-Two LSTM layers (64 units each)
+match: What kind of traffic to apply the rule to (e.g., in_port).
 
-Dropout layers (to prevent overfitting)
+actions: How to handle matched packets (e.g., forward to port).
 
-Dense layers (for classification)
+Timeouts:
 
-Softmax activation (to predict AP assignment)
+idle_timeout: Flow expires if inactive.
 
-Compiled the model using:
+hard_timeout: Flow expires regardless.
 
-Adam optimizer (learning_rate=0.001)
+This helps enforce temporary rerouting or prioritized behavior, driven by real-time ML predictions.
 
-Categorical Crossentropy loss function
 
-Accuracy as the evaluation metric
 
 
--------------------------------------------------
+ Rerouting Rules (in reroute_ap_traffic)
 
-SO FAR WHAT WE HAVE ACHIEVED 
+match = parser.OFPMatch(in_port=1)
+actions = [parser.OFPActionOutput(2)]
+If an AP (e.g., from_ap) is predicted to be congested, traffic entering on port 1 is rerouted to port 2 (assumed to reach to_ap).
 
--Given a sequence of network traffic data, the model will predict which access point (AP) will be assigned to the next data packet.
+Before applying the new flow:
 
-for example 
+Existing flows matching the same in_port are deleted (delete_flows) to avoid conflict.
 
-Input: [x, y, speed, rx_packets, tx_packets, ...] over last 10 timesteps  
-Output: Predicted AP_ID (one-hot encoded) → Converted back to AP label
+Purpose: Reduce congestion by offloading traffic to the least congested AP.
 
-How This Prediction Helps?
+ SDN decision logic is now reactive and intelligent—routed based on predictive congestion data rather than static rules or manual thresholds.
 
- -Optimized Network Load Balancing
 
- 	The SDN controller can predict congestion and reroute packets   before overload happens.
 
- 	Helps in dynamic flow-rule placement across APs.
+Special Prediction-Based Flows (in handle_prediction and install_special_flow)
 
- -Improved QoS (Quality of Service) for IoV Applications
+match = parser.OFPMatch()  # Could be enhanced to match src_mac or node_id
+actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
+When the controller receives an ML prediction (node_id → predicted_ap), it may proactively install a "special" flow on the predicted AP.
 
-	Vehicles moving in the network get faster & more reliable 	 connectivity.
+This can be extended to match specific node traffic and forward accordingly (e.g., install per-node rules).
 
-	Reduces packet loss & latency for real-time vehicle 	applications (e.g., V2X communication).
-	
------------------------------------------------------------------
 
-WORK TO BE DONE 
 
-
-mplement Feature Normalization (StandardScaler)
-
-Retrain the Model with Hyperparameter Tuning
-
-Evaluate Model Performance After Improvements
-
-Deploy Predictions into the SDN Controller for Dynamic Flow Rule Updates
-
-
------------------------------------------------------------------
-
-
-HOW PREDICTIONS INFLUENCE FLOW RULE PLACEMENT ?
-
- BEFORE USING LSTM PREDICTIONS
-
-SDN controller reacts to network congestion only after it happens.
-
-Flow rules are set statically or manually adjusted when network traffic fluctuates.
-
-
- AFTER USING LSTM PREDICTIONS
-
-The SDN controller proactively assigns flow rules based on predicted AP congestion.
-
-Reduces latency, packet drops, and network congestion in IoV scenarios.
-
------------------------------------------------------------------
-
-SO TO DO THAT :  AFTER USING LSTM PREDICTIONS
-
-1. Deploy the LSTM Model as a Prediction Service
-Save the trained model (.h5 file) and create a Flask API to serve predictions.
-	This API will return the predicted best access point (AP).
-
-2. Integrate Predictions into Ryu SDN Controller
-Modify your Ryu controller to fetch LSTM predictions before placing flow rules.
-
-Steps:
-
-Extract real-time traffic data from SDN switches using OpenFlow statistics.
-
-Send data to the LSTM prediction API.
-
-Receive the predicted AP assignment.
-
-Modify flow rules dynamically:
-
-If predicted_ap is not equal to current_ap, then update the flow table to reroute packets.
-
-
-3. Implement Dynamic Flow Rule Updates
-	Trigger update_flow_rule() after getting LSTM predictions.
-
-
-
-
-
-
-
+| Feature                 | Description                                         | Contribution to SDN Decision                                 |
+| ----------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
+| **UDP-based ML input**  | Receives real-time predictions about AP congestion  | Gives controller a data-driven basis for traffic engineering |
+| **Flow install/delete** | Dynamically adds or removes rules                   | Enables real-time adaptation to changing conditions          |
+| **Congestion scoring**  | Combines latency, packet rate, etc.                 | Makes the choice of "least congested AP" intelligent         |
+| **Timeouts**            | Flow entries expire if not used or after fixed time | Keeps the flow table clean and avoids state rules            |
+| **Special flows**       | Handles node-specific predictions                   | Enables proactive optimization before congestion occurs      |

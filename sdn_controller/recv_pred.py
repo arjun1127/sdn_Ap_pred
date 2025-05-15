@@ -58,10 +58,10 @@ class MLSDNController(app_manager.RyuApp):
             try:
                 msg = json.loads(data.decode())
 
-                #self.logger.info("Raw message: %s", msg)  # Add this line for debugging
+                self.logger.info("Raw message: %s", msg)  # Add this line for debugging
 
                 if msg.get("type") == "batch":
-                    #self.logger.info("Received batch prediction")
+                    self.logger.info("Received batch prediction")
                     self.process_batch(msg["data"])
                 else:
                     #self.logger.info("Received single prediction")
@@ -69,7 +69,9 @@ class MLSDNController(app_manager.RyuApp):
 
             except Exception as e:
                 self.logger.error("Error parsing prediction: %s", e)
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    
     def packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
@@ -93,7 +95,7 @@ class MLSDNController(app_manager.RyuApp):
 
 
     def process_batch(self, batch_data):
-        #self.logger.info("Received batch data: %s", batch_data)
+        self.logger.info("Received batch data: %s", batch_data)
         self.predictions.clear()
 
         for p in batch_data:

@@ -1,6 +1,7 @@
 # Python Virtual Environments
 venv/
-lstm_venv/
+lstm_model/lstm_env
+lstm_venv
 *.pyc
 *.pyo
 __pycache__/
@@ -55,4 +56,10 @@ mininet/
 *.idea/
 *.vscode/
 # Ignore SUMO cloned repository
-sumo/sumo/
+sumo/
+sumo2/
+
+
+ap_nodes/
+
+lstm_model/

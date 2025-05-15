@@ -1,0 +1,10 @@
+<configuration>
+    <input>
+        <net-file value="highway.net.xml"/>  <!-- The generated network file -->
+        <route-files value="highway.rou.xml"/>  <!-- Your existing route file -->
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="100"/>
+    </time>
+</configuration>
