@@ -58,9 +58,7 @@ mininet/
 
 # Ignore SUMO cloned repository
 
-sumo/
+
 sumo2/
 
-ap_nodes/
-lstm_model/
 
