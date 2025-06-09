@@ -209,5 +209,32 @@ cd sdn-lstm-vehicular
 ```
 
 
+# RESULTS 
+![image](https://github.com/user-attachments/assets/d655c95a-f219-40f1-b414-10455774229e)
+
+![image](https://github.com/user-attachments/assets/658f14e4-b55b-44ef-9787-125808d01159)
+
+![image](https://github.com/user-attachments/assets/60805a9b-2217-4e0b-a72e-d160a1dc863f)
+
+
+
+
+# Core Theory
+
+This project is built on the convergence of Software Defined Networking (SDN) and Machine Learning (LSTM) to intelligently manage and optimize data flow in vehicular networks.
+
+Traditional vehicular networks suffer from unpredictable congestion due to fluctuating traffic density, mobility patterns, and limited bandwidth at wireless access points (APs). To address this, the project uses Long Short-Term Memory (LSTM) models to forecast key network metrics—such as latency, bandwidth usage, and packet rate—based on real-time mobility and network data.
+
+These predictions are then sent to an SDN controller (Ryu) that dynamically reroutes traffic away from predicted congested APs by updating OpenFlow rules across the network. This approach creates a proactive congestion avoidance mechanism, unlike conventional reactive routing systems.
+
+By integrating:
+
+LSTM’s sequence learning ability for time-series traffic prediction, and
+
+SDN’s programmability and centralized control for real-time traffic management,
+
+the system achieves adaptive and intelligent network behavior, improving throughput, reducing packet loss, and enabling reliable data delivery in high-mobility IoT and autonomous vehicle environments.
+
+
 
 
