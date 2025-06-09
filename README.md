@@ -2,6 +2,29 @@
 
 # SDN-LSTM Based Network Congestion Reduction for Autonomous Vehicles/ IOT devices
 
+#  Table of Contents
+
+- [SDN-LSTM Based Network Congestion Reduction for Autonomous Vehicles/IoT Devices](#sdn-lstm-based-network-congestion-reduction-for-autonomous-vehicles-iot-devices)
+- [Project Components](#project-components)
+  - [1. SDN Controller (Ryu-based)](#1-sdn-controller-ryu-based)
+  - [2. Machine Learning Predictor (LSTM)](#2-machine-learning-predictor-lstm)
+  - [3. Simulation Environment](#3-simulation-environment)
+- [Installation](#installation)
+  - [1. System Dependencies (LSTM Setup)](#1-system-dependencies)
+  - [2. Ryu and Mininet Setup](#2-ryu-and-mininet-setup)
+  - [3. Install Mininet](#3-install-mininet)
+  - [4. Activating and Deactivating Environments](#4-activating-and-deactivating-environments)
+- [How to Run the Project](#how-to-run-the-project)
+  - [Step 1: Run LSTM Prediction Notebook](#step-1-run-lstm-prediction-notebook)
+  - [Step 2: Send Predictions to SDN Controller](#step-2-send-predictions-to-sdn-controller)
+  - [Step 3: Start Ryu SDN Controller](#step-3-start-ryu-sdn-controller)
+  - [Step 4: Run Mininet Simulation](#step-4-run-mininet-simulation)
+  - [Step 5: Start SDN Controller to Receive Predictions](#step-5-start-sdn-controller-to-receive-predictions)
+- [Repository Clone Instructions](#clone-repo)
+- [Results](#results)
+- [Core Theory](#core-theory)
+
+
 This project integrates **Software Defined Networking (SDN)** with **Long Short-Term Memory (LSTM)** neural networks to proactively reduce network congestion in vehicular networks. It predicts traffic patterns at Access Points (APs) using machine learning and reroutes data flows using SDN to the least congested AP.
 
 ##  Project Components
