@@ -1,6 +1,6 @@
 
 
-# SDN-LSTM Based Network Congestion Reduction for Autonomous Vehicles
+# SDN-LSTM Based Network Congestion Reduction for Autonomous Vehicles/ IOT devices
 
 This project integrates **Software Defined Networking (SDN)** with **Long Short-Term Memory (LSTM)** neural networks to proactively reduce network congestion in vehicular networks. It predicts traffic patterns at Access Points (APs) using machine learning and reroutes data flows using SDN to the least congested AP.
 
